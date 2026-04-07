@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Doses - UTI</title>
+    <!-- Tailwind CSS para Estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue.js para Reatividade e Lógica -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Ícones Phosphor -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        /* Ajustes finos de estilo */
+        body { font-family: 'Inter', system-ui, sans-serif; background-color: #f1f5f9; }
+        .input-field {
+            width: 100%; padding: 0.5rem 0.75rem; border-radius: 0.375rem;
+            border: 1px solid #cbd5e1; background-color: #fff;
+            transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+        }
+        .input-field:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2); }
+        .label-text { display: block; font-size: 0.875rem; font-weight: 600; color: #475569; margin-bottom: 0.25rem; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen p-4 md:p-8">
+
+<div id="app" class="max-w-6xl mx-auto">
+    <!-- Cabeçalho -->
+    <div class="mb-8 text-center md:text-left flex items-center gap-3">
+        <i class="ph ph-heartbeat text-4xl text-sky-600"></i>
+        <div>
+            <h1 class="text-3xl font-bold text-slate-800">Calculadora de Doses - UTI</h1>
+            <p class="text-slate-500">Bomba de Infusão Contínua (BIC) e Medicamentos Vasoativos</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- COLUNA ESQUERDA: ENTRADA DE DADOS -->
+        <div class="lg:col-span-5 space-y-6">
+            
+            <!-- Card: Dados do Paciente -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <i class="ph ph-user text-xl text-sky-500"></i> Dados do Paciente
+                </h2>
+                <div>
+                    <label class="label-text">Peso (kg)</label>
+                    <input type="number" v-model.number="peso" min="0" step="0.1" class="input-field text-lg" placeholder="Ex: 70">
+                </div>
+            </div>
+
+            <!-- Card: Solução e Preparo -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <i class="ph ph-flask text-xl text-sky-500"></i> Preparo da Solução
+                </h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="label-text">Medicamento</label>
+                        <input type="text" v-model="medicamento" class="input-field" placeholder="Ex: Noradrenalina">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="label-text">Conc. na Ampola (mg/ml)</label>
+                            <input type="number" v-model.number="mgPorMlAmpola" min="0" step="any" class="input-field" placeholder="Ex: 2">
+                        </div>
+                        <div>
+                            <label class="label-text">Volume da Ampola (ml)</label>
+                            <input type="number" v-model.number="mlPorAmpola" min="0" step="any" class="input-field" placeholder="Ex: 4">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="label-text">Quantidade de Ampolas</label>
+                        <input type="number" v-model.number="qtdAmpolas" min="0" step="1" class="input-field" placeholder="Ex: 4">
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-100"></div>
+
+                    <div>
+                        <label class="label-text">Diluente</label>
+                        <input type="text" v-model="diluente" class="input-field" placeholder="Ex: Soro Glicosado 5%">
+                    </div>
+
+                    <div>
+                        <label class="label-text">Volume de Diluente (ml)</label>
+                        <input type="number" v-model.number="volumeDiluente" min="0" step="any" class="input-field" placeholder="Ex: 234">
+                    </div>
+                </div>
+
+                <!-- Resumo da Solução (Visualização) -->
+                <div class="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm">
+                    <div class="flex justify-between mb-1">
+                        <span class="text-slate-500">Massa Total:</span>
+                        <span class="font-semibold text-slate-700">{{ doseTotalMg.toFixed(2) }} mg</span>
+                    </div>
+                    <div class="flex justify-between mb-1">
+                        <span class="text-slate-500">Volume Total:</span>
+                        <span class="font-semibold text-slate-700">{{ volumeTotalMl.toFixed(2) }} ml</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Concentração:</span>
+                        <span class="font-bold text-sky-600">{{ concMgMl.toFixed(4) }} mg/ml <span class="text-xs text-slate-500 font-normal">({{ concMcgMl.toFixed(2) }} mcg/ml)</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUNA DIREITA: CÁLCULOS E RESULTADOS -->
+        <div class="lg:col-span-7 space-y-6">
+            
+            <!-- Card: Configuração de Cálculo -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 border-l-4 border-l-sky-500">
+                <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <i class="ph ph-calculator text-xl text-sky-500"></i> Parâmetros do Cálculo
+                </h2>
+
+                <div class="mb-4">
+                    <label class="label-text mb-2">O que você deseja calcular?</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <button @click="modoCalculo = 'rate_from_dose'" 
+                                :class="modoCalculo === 'rate_from_dose' ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'"
+                                class="px-4 py-2 border rounded-lg font-medium transition-colors text-sm">
+                            Calcular ML/H a partir da Dose
+                        </button>
+                        <button @click="modoCalculo = 'dose_from_rate'"
+                                :class="modoCalculo === 'dose_from_rate' ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'"
+                                class="px-4 py-2 border rounded-lg font-medium transition-colors text-sm">
+                            Calcular DOSE a partir de ML/H
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end bg-sky-50 p-4 rounded-lg">
+                    <div>
+                        <label class="label-text">Unidade de Medida da Dose</label>
+                        <select v-model="unidadeDose" class="input-field bg-white">
+                            <option value="mcg/kg/min">micrograma/kg/min (mcg/kg/min)</option>
+                            <option value="mcg/min">micrograma/min (mcg/min)</option>
+                            <option value="mg/kg/h">miligrama/kg/h (mg/kg/h)</option>
+                            <option value="mg/h">miligrama/h (mg/h)</option>
+                            <option value="mcg/kg/h">micrograma/kg/h (mcg/kg/h)</option>
+                        </select>
+                    </div>
+
+                    <div v-if="modoCalculo === 'rate_from_dose'">
+                        <label class="label-text text-sky-800">Dose Desejada ({{unidadeDose}})</label>
+                        <input type="number" v-model.number="doseDesejada" min="0" step="any" class="input-field border-sky-300 focus:border-sky-500 font-bold text-sky-900" placeholder="Ex: 0.1">
+                    </div>
+
+                    <div v-if="modoCalculo === 'dose_from_rate'">
+                        <label class="label-text text-sky-800">Velocidade da Bomba (ml/h)</label>
+                        <input type="number" v-model.number="velocidadeAtual" min="0" step="any" class="input-field border-sky-300 focus:border-sky-500 font-bold text-sky-900" placeholder="Ex: 10">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Resultados - Prescrição -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+                <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <i class="ph ph-prescription text-xl text-emerald-500"></i> Prescrição Final
+                </h2>
+
+                <div v-if="!isValid" class="text-amber-600 bg-amber-50 p-3 rounded-lg flex gap-2 items-center text-sm font-medium">
+                    <i class="ph ph-warning-circle text-lg"></i> Preencha os dados básicos (peso, volumes) para gerar a prescrição.
+                </div>
+                <div v-else>
+                    <div class="font-mono text-sm sm:text-base bg-slate-800 text-emerald-400 p-5 rounded-lg shadow-inner whitespace-pre-line leading-relaxed">
+                        <span class="text-white font-bold block mb-2 border-b border-slate-600 pb-2">PRESCRIÇÃO MÉDICA:</span>
+                        <span class="text-sky-300">{{medicamento || '[Medicamento]'}}</span> ............ <span class="text-white">{{qtdAmpolas}}</span> ampola(s) <span class="text-slate-400">({{doseTotalMg}} mg)</span>
+                        <span class="text-sky-300">{{diluente || '[Diluente]'}}</span> ............ <span class="text-white">{{volumeDiluente}}</span> ml
+                        <span class="text-slate-500 block my-1">-------------------------------------------------</span>
+                        <span class="text-slate-300">Volume Total:</span> <span class="text-white">{{volumeTotalMl}} ml</span>
+                        <span class="text-slate-300">Concentração:</span> <span class="text-white">{{concMgMl.toFixed(2)}} mg/ml</span>
+
+                        <div class="mt-4 p-2 bg-slate-700 rounded border border-slate-600">
+                            <span class="text-white font-bold">Administrar em BIC a <span class="text-emerald-400 text-xl">{{ calculoFinal.resultadoHlML.toFixed(2) }} ml/h</span></span>
+                            <span class="block text-slate-300 mt-1 text-xs">
+                                Dose alvo correspondente: {{ calculoFinal.resultadoDose.toFixed(4) }} {{ unidadeDose }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Memória de Cálculo -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <i class="ph ph-math-operations text-xl text-sky-500"></i> Explicação Detalhada do Cálculo
+                </h2>
+                
+                <div v-if="!isValid" class="text-slate-400 text-sm">
+                    Aguardando dados suficientes para exibir o cálculo...
+                </div>
+                <div v-else class="space-y-3 text-sm text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                    <p v-for="(passo, index) in calculoFinal.explicacao" :key="index" v-html="passo"></p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp } = Vue;
+
+    createApp({
+        data() {
+            return {
+                // Dados do Paciente
+                peso: 70,
+                
+                // Dados da Medicação
+                medicamento: 'Noradrenalina',
+                mgPorMlAmpola: 2,
+                mlPorAmpola: 4,
+                qtdAmpolas: 4,
+                
+                // Diluente
+                diluente: 'Soro Glicosado 5%',
+                volumeDiluente: 234,
+                
+                // Configuração do Cálculo
+                modoCalculo: 'rate_from_dose', // 'rate_from_dose' ou 'dose_from_rate'
+                unidadeDose: 'mcg/kg/min',
+                
+                // Valores Inseridos pelo usuário
+                doseDesejada: 0.1,
+                velocidadeAtual: 10
+            }
+        },
+        computed: {
+            isValid() {
+                return this.volumeTotalMl > 0 && 
+                       this.qtdAmpolas >= 0 && 
+                       this.doseTotalMg >= 0 && 
+                       (this.precisaPeso ? this.peso > 0 : true);
+            },
+            precisaPeso() {
+                return this.unidadeDose.includes('kg');
+            },
+            doseTotalMg() {
+                return (this.mgPorMlAmpola * this.mlPorAmpola) * this.qtdAmpolas;
+            },
+            volumeTotalMl() {
+                return (this.mlPorAmpola * this.qtdAmpolas) + (this.volumeDiluente || 0);
+            },
+            concMgMl() {
+                if (this.volumeTotalMl === 0) return 0;
+                return this.doseTotalMg / this.volumeTotalMl;
+            },
+            concMcgMl() {
+                return this.concMgMl * 1000;
+            },
+            calculoFinal() {
+                if (!this.isValid) return { resultadoHlML: 0, resultadoDose: 0, explicacao: [] };
+
+                let steps = [];
+                let w = this.peso || 0;
+                let c_mg = this.concMgMl;
+                let c_mcg = this.concMcgMl;
+                let rate = 0;   // ml/h
+                let dose = 0;   // in target unit
+
+                // Passo 1 e 2: Preparo
+                steps.push(`<b>Passo 1 (Massa Total):</b> ${this.qtdAmpolas} ampolas × (${this.mgPorMlAmpola} mg/ml × ${this.mlPorAmpola} ml) = <span class="text-slate-900 font-semibold">${this.doseTotalMg.toFixed(2)} mg</span>.`);
+                steps.push(`<b>Passo 2 (Volume Total):</b> (${this.qtdAmpolas} amp × ${this.mlPorAmpola} ml) + ${this.volumeDiluente} ml de diluente = <span class="text-slate-900 font-semibold">${this.volumeTotalMl.toFixed(2)} ml</span>.`);
+                steps.push(`<b>Passo 3 (Concentração):</b> ${this.doseTotalMg.toFixed(2)} mg ÷ ${this.volumeTotalMl.toFixed(2)} ml = <span class="text-slate-900 font-semibold">${c_mg.toFixed(4)} mg/ml</span> (ou ${c_mcg.toFixed(2)} mcg/ml).`);
+
+                if (this.modoCalculo === 'rate_from_dose') {
+                    dose = this.doseDesejada || 0;
+                    steps.push(`<br><span class="text-sky-600 font-bold">Objetivo: Converter a dose desejada (${dose} ${this.unidadeDose}) em velocidade (ml/h).</span>`);
+                    
+                    let doseTotalHoraMg = 0;
+
+                    if (this.unidadeDose === 'mcg/kg/min') {
+                        let totalMcgMin = dose * w;
+                        let totalMcgH = totalMcgMin * 60;
+                        doseTotalHoraMg = totalMcgH / 1000;
+                        rate = totalMcgH / c_mcg;
+                        
+                        steps.push(`<b>Passo 4 (Dose por Minuto):</b> Dose (${dose}) × Peso (${w} kg) = <span class="text-slate-900 font-semibold">${totalMcgMin.toFixed(2)} mcg/min</span>.`);
+                        steps.push(`<b>Passo 5 (Dose por Hora):</b> ${totalMcgMin.toFixed(2)} mcg/min × 60 minutos = <span class="text-slate-900 font-semibold">${totalMcgH.toFixed(2)} mcg/h</span>.`);
+                        steps.push(`<b>Passo 6 (Velocidade):</b> ${totalMcgH.toFixed(2)} mcg/h ÷ Concentração (${c_mcg.toFixed(2)} mcg/ml) = <strong class="text-emerald-600">${rate.toFixed(2)} ml/h</strong>.`);
+                    
+                    } else if (this.unidadeDose === 'mcg/min') {
+                        let totalMcgH = dose * 60;
+                        rate = totalMcgH / c_mcg;
+                        steps.push(`<b>Passo 4 (Dose por Hora):</b> Dose (${dose} mcg/min) × 60 min = <span class="text-slate-900 font-semibold">${totalMcgH.toFixed(2)} mcg/h</span>.`);
+                        steps.push(`<b>Passo 5 (Velocidade):</b> ${totalMcgH.toFixed(2)} mcg/h ÷ Concentração (${c_mcg.toFixed(2)} mcg/ml) = <strong class="text-emerald-600">${rate.toFixed(2)} ml/h</strong>.`);
+                    
+                    } else if (this.unidadeDose === 'mg/kg/h') {
+                        let totalMgH = dose * w;
+                        rate = totalMgH / c_mg;
+                        steps.push(`<b>Passo 4 (Dose por Hora):</b> Dose (${dose}) × Peso (${w} kg) = <span class="text-slate-900 font-semibold">${totalMgH.toFixed(2)} mg/h</span>.`);
+                        steps.push(`<b>Passo 5 (Velocidade):</b> ${totalMgH.toFixed(2)} mg/h ÷ Concentração (${c_mg.toFixed(4)} mg/ml) = <strong class="text-emerald-600">${rate.toFixed(2)} ml/h</strong>.`);
+                    
+                    } else if (this.unidadeDose === 'mg/h') {
+                        rate = dose / c_mg;
+                        steps.push(`<b>Passo 4 (Velocidade):</b> Dose (${dose} mg/h) ÷ Concentração (${c_mg.toFixed(4)} mg/ml) = <strong class="text-emerald-600">${rate.toFixed(2)} ml/h</strong>.`);
+                    
+                    } else if (this.unidadeDose === 'mcg/kg/h') {
+                        let totalMcgH = dose * w;
+                        rate = totalMcgH / c_mcg;
+                        steps.push(`<b>Passo 4 (Dose por Hora):</b> Dose (${dose}) × Peso (${w} kg) = <span class="text-slate-900 font-semibold">${totalMcgH.toFixed(2)} mcg/h</span>.`);
+                        steps.push(`<b>Passo 5 (Velocidade):</b> ${totalMcgH.toFixed(2)} mcg/h ÷ Concentração (${c_mcg.toFixed(2)} mcg/ml) = <strong class="text-emerald-600">${rate.toFixed(2)} ml/h</strong>.`);
+                    }
+
+                } else {
+                    // MODO: dose_from_rate
+                    rate = this.velocidadeAtual || 0;
+                    steps.push(`<br><span class="text-sky-600 font-bold">Objetivo: Descobrir a dose (${this.unidadeDose}) baseada na infusão de ${rate} ml/h.</span>`);
+                    
+                    let totalMgH = rate * c_mg;
+                    let totalMcgH = totalMgH * 1000;
+
+                    steps.push(`<b>Passo 4 (Massa infundida por Hora):</b> Velocidade (${rate} ml/h) × Concentração (${c_mg.toFixed(4)} mg/ml) = <span class="text-slate-900 font-semibold">${totalMgH.toFixed(2)} mg/h</span> (ou ${totalMcgH.toFixed(2)} mcg/h).`);
+
+                    if (this.unidadeDose === 'mcg/kg/min') {
+                        let totalMcgMin = totalMcgH / 60;
+                        dose = totalMcgMin / w;
+                        steps.push(`<b>Passo 5 (Massa por Minuto):</b> ${totalMcgH.toFixed(2)} mcg/h ÷ 60 = <span class="text-slate-900 font-semibold">${totalMcgMin.toFixed(2)} mcg/min</span>.`);
+                        steps.push(`<b>Passo 6 (Dose Final):</b> ${totalMcgMin.toFixed(2)} mcg/min ÷ Peso (${w} kg) = <strong class="text-emerald-600">${dose.toFixed(4)} mcg/kg/min</strong>.`);
+                    
+                    } else if (this.unidadeDose === 'mcg/min') {
+                        dose = totalMcgH / 60;
+                        steps.push(`<b>Passo 5 (Dose Final):</b> ${totalMcgH.toFixed(2)} mcg/h ÷ 60 = <strong class="text-emerald-600">${dose.toFixed(4)} mcg/min</strong>.`);
+                    
+                    } else if (this.unidadeDose === 'mg/kg/h') {
+                        dose = totalMgH / w;
+                        steps.push(`<b>Passo 5 (Dose Final):</b> ${totalMgH.toFixed(2)} mg/h ÷ Peso (${w} kg) = <strong class="text-emerald-600">${dose.toFixed(4)} mg/kg/h</strong>.`);
+                    
+                    } else if (this.unidadeDose === 'mg/h') {
+                        dose = totalMgH;
+                        steps.push(`<b>Passo 5 (Dose Final):</b> Corresponde diretamente à massa infundida = <strong class="text-emerald-600">${dose.toFixed(4)} mg/h</strong>.`);
+                    
+                    } else if (this.unidadeDose === 'mcg/kg/h') {
+                        dose = totalMcgH / w;
+                        steps.push(`<b>Passo 5 (Dose Final):</b> ${totalMcgH.toFixed(2)} mcg/h ÷ Peso (${w} kg) = <strong class="text-emerald-600">${dose.toFixed(4)} mcg/kg/h</strong>.`);
+                    }
+                }
+
+                return {
+                    resultadoHlML: rate,
+                    resultadoDose: dose,
+                    explicacao: steps
+                };
+            }
+        }
+    }).mount('#app')
+</script>
+
+</body>
+</html>
